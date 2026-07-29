@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Night Clock</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #clock-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: transform 1s linear, filter 0.2s linear;
+  }
+  #time {
+    color: #fff;
+    font-family: -apple-system, "SF Pro Display", Helvetica, Arial, sans-serif;
+    font-weight: 300;
+    font-size: 22vw;
+    letter-spacing: 0.02em;
+    line-height: 1;
+  }
+  #date {
+    color: #fff;
+    font-family: -apple-system, "SF Pro Display", Helvetica, Arial, sans-serif;
+    font-weight: 400;
+    font-size: 5vw;
+    margin-top: 1.5vh;
+    opacity: 0.6;
+  }
+
+  #settings-toggle {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 22vw;
+    height: 22vw;
+    max-width: 90px;
+    max-height: 90px;
+    background: transparent;
+  }
+
+  #panel {
+    position: fixed;
+    left: 50%;
+    bottom: 6vh;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 14px;
+    padding: 12px 18px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  #panel.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  #panel label {
+    color: #888;
+    font-family: -apple-system, sans-serif;
+    font-size: 13px;
+  }
+  #brightness {
+    width: 45vw;
+    max-width: 220px;
+  }
+</style>
+</head>
+<body>
+  <div id="clock-wrap">
+    <div id="time">--:--</div>
+    <div id="date">--</div>
+  </div>
+
+  <div id="settings-toggle"></div>
+
+  <div id="panel">
+    <label for="brightness">Dim</label>
+    <input type="range" id="brightness" min="8" max="100" value="35">
+  </div>
+
+<script>
+  const wrap = document.getElementById('clock-wrap');
+  const timeEl = document.getElementById('time');
+  const dateEl = document.getElementById('date');
+  const panel = document.getElementById('panel');
+  const toggle = document.getElementById('settings-toggle');
+  const brightnessInput = document.getElementById('brightness');
+
+  function pad(n) { return n.toString().padStart(2, '0'); }
+
+  function update() {
+    const now = new Date();
+    let h = now.getHours();
+    const m = now.getMinutes();
+    h = h % 12;
+    if (h === 0) h = 12;
+    timeEl.textContent = pad(h) + ':' + pad(m);
+
+    const opts = { weekday: 'long', month: 'long', day: 'numeric' };
+    dateEl.textContent = now.toLocaleDateString(undefined, opts);
+
+    const shiftX = (now.getMinutes() % 4) * 4 - 6;
+    const shiftY = (now.getHours() % 4) * 4 - 6;
+    wrap.style.transform = `translate(${shiftX}px, ${shiftY}px) scale(1)`;
+
+    setTimeout(update, (60 - now.getSeconds()) * 1000);
+  }
+
+  function applyBrightness(val) {
+    const factor = (val / 100).toFixed(2);
+    wrap.style.filter = `brightness(${factor})`;
+  }
+
+  const saved = localStorage.getItem('nightclock-brightness');
+  if (saved) brightnessInput.value = saved;
+  applyBrightness(brightnessInput.value);
+
+  brightnessInput.addEventListener('input', () => {
+    applyBrightness(brightnessInput.value);
+    localStorage.setItem('nightclock-brightness', brightnessInput.value);
+  });
+
+  let hideTimer;
+  function showPanel() {
+    panel.classList.add('visible');
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => panel.classList.remove('visible'), 4000);
+  }
+  toggle.addEventListener('click', showPanel);
+  panel.addEventListener('click', showPanel);
+  panel.addEventListener('input', showPanel);
+
+  update();
+
+  document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+  document.addEventListener('dblclick', e => e.preventDefault());
+</script>
+</body>
+</html>

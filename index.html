@@ -45,54 +45,16 @@
     opacity: 0.6;
   }
   #alarm {
+    position: fixed;
+    right: 4vw;
+    bottom: 4vh;
     color: #fff;
     font-family: -apple-system, "SF Pro Display", Helvetica, Arial, sans-serif;
     font-weight: 400;
-    font-size: 3.6vw;
-    margin-top: 1vh;
-    opacity: 0.45;
-    min-height: 1.2em;
-  }
-
-  #settings-toggle {
-    position: fixed;
-    bottom: 0;
-    right: 0;
-    width: 22vw;
-    height: 22vw;
-    max-width: 90px;
-    max-height: 90px;
-    background: transparent;
-  }
-
-  #panel {
-    position: fixed;
-    left: 50%;
-    bottom: 6vh;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: #111;
-    border: 1px solid #333;
-    border-radius: 14px;
-    padding: 12px 18px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.25s ease;
-  }
-  #panel.visible {
-    opacity: 1;
-    pointer-events: auto;
-  }
-  #panel label {
-    color: #888;
-    font-family: -apple-system, sans-serif;
-    font-size: 13px;
-  }
-  #brightness {
-    width: 45vw;
-    max-width: 220px;
+    font-size: 3.2vw;
+    opacity: 0.55;
+    text-align: right;
+    transition: transform 1s linear;
   }
 </style>
 </head>
@@ -100,24 +62,20 @@
   <div id="clock-wrap">
     <div id="time">--:--</div>
     <div id="date">--</div>
-    <div id="alarm"></div>
   </div>
 
-  <div id="settings-toggle"></div>
-
-  <div id="panel">
-    <label for="brightness">Dim</label>
-    <input type="range" id="brightness" min="8" max="100" value="35">
-  </div>
+  <div id="alarm"></div>
 
 <script>
+  // Manual brightness control: edit this number (8-100) directly if you
+  // want to change how dim the text is. It's the only "setting" now that
+  // the on-screen tap panel has been removed.
+  const DEFAULT_BRIGHTNESS = 35;
+
   const wrap = document.getElementById('clock-wrap');
   const timeEl = document.getElementById('time');
   const dateEl = document.getElementById('date');
   const alarmEl = document.getElementById('alarm');
-  const panel = document.getElementById('panel');
-  const toggle = document.getElementById('settings-toggle');
-  const brightnessInput = document.getElementById('brightness');
 
   function pad(n) { return n.toString().padStart(2, '0'); }
 
@@ -132,9 +90,16 @@
     const opts = { weekday: 'long', month: 'long', day: 'numeric' };
     dateEl.textContent = now.toLocaleDateString(undefined, opts);
 
-    const shiftX = (now.getMinutes() % 4) * 4 - 6;
+    // Tiny pixel shift every minute to help prevent OLED burn-in.
+    const shiftX = (now.getMinutes() % 4) * 4 - 6;   // -6..+6 px
     const shiftY = (now.getHours() % 4) * 4 - 6;
-    wrap.style.transform = `translate(${shiftX}px, ${shiftY}px) scale(1)`;
+    wrap.style.transform = `translate(${shiftX}px, ${shiftY}px)`;
+
+    // The alarm text gets its own shift pattern, offset from the clock's,
+    // so the two don't always move in lockstep.
+    const alarmShiftX = -((now.getMinutes() % 3) * 3 - 3); // -3..+3 px
+    const alarmShiftY = -((now.getHours() % 3) * 3 - 3);
+    alarmEl.style.transform = `translate(${alarmShiftX}px, ${alarmShiftY}px)`;
 
     setTimeout(update, (60 - now.getSeconds()) * 1000);
   }
@@ -142,26 +107,14 @@
   function applyBrightness(val) {
     const factor = (val / 100).toFixed(2);
     wrap.style.filter = `brightness(${factor})`;
+    alarmEl.style.filter = `brightness(${factor})`;
   }
 
+  // Keeps honoring a brightness level you may have set previously via the
+  // old slider (stored in localStorage), otherwise falls back to the
+  // constant above.
   const saved = localStorage.getItem('nightclock-brightness');
-  if (saved) brightnessInput.value = saved;
-  applyBrightness(brightnessInput.value);
-
-  brightnessInput.addEventListener('input', () => {
-    applyBrightness(brightnessInput.value);
-    localStorage.setItem('nightclock-brightness', brightnessInput.value);
-  });
-
-  let hideTimer;
-  function showPanel() {
-    panel.classList.add('visible');
-    clearTimeout(hideTimer);
-    hideTimer = setTimeout(() => panel.classList.remove('visible'), 4000);
-  }
-  toggle.addEventListener('click', showPanel);
-  panel.addEventListener('click', showPanel);
-  panel.addEventListener('input', showPanel);
+  applyBrightness(saved || DEFAULT_BRIGHTNESS);
 
   // Fetch alarm.json (written by your Shortcuts automation) and display it.
   // Cache-busting query param + no-store so we don't show a stale value.
